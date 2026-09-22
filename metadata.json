@@ -1,0 +1,6 @@
+{
+  "name": "Cerimonial IA",
+  "description": "Assistente de pré-evento para cerimonialistas de casamento: do briefing ao Dia D, organize seu evento com inteligência.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
