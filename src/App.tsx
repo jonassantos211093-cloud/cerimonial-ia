@@ -9,6 +9,7 @@ import { PreparationChecklistSection } from './components/PreparationChecklistSe
 import { VendorsSection } from './components/VendorsSection';
 import { WhatsAppSection } from './components/WhatsAppSection';
 import { CeremonyScriptSection } from './components/CeremonyScriptSection';
+import { CerimonialSuggestionsSection } from './components/CerimonialSuggestionsSection';
 import { ContingencySection } from './components/ContingencySection';
 import { DayDChecklistSection } from './components/DayDChecklistSection';
 import { PostEventChecklistSection } from './components/PostEventChecklistSection';
@@ -16,6 +17,7 @@ import { WeddingFormData, GeneratedPlan } from './types';
 import {
   INITIAL_WEDDING_DATA,
   EMPTY_WEDDING_DATA,
+  PEDRO_MARIA_TEST_DATA,
   generateWeddingPlan,
   formatPlanAsPlainText,
 } from './utils/planGenerator';
@@ -61,6 +63,13 @@ export default function App() {
   const handleClearForm = () => {
     setFormData(EMPTY_WEDDING_DATA);
     showToast('Formulário limpo. Preencha apenas os campos desejados.');
+  };
+
+  const handleLoadPedroMaria = () => {
+    setFormData(PEDRO_MARIA_TEST_DATA);
+    const pmPlan = generateWeddingPlan(PEDRO_MARIA_TEST_DATA);
+    setGeneratedPlan(pmPlan);
+    showToast('Teste carregado: Pedro e Maria, 04/02/2027, 50 convidados (demais campos vazios).');
   };
 
   const handleCopyPlan = () => {
@@ -125,6 +134,7 @@ export default function App() {
             onSubmit={handleGeneratePlan}
             onResetExample={handleResetToExample}
             onClearForm={handleClearForm}
+            onLoadPedroMaria={handleLoadPedroMaria}
           />
         ) : (
           generatedPlan && (
@@ -171,18 +181,25 @@ export default function App() {
                 {/* 5. Mensagens prontas para WhatsApp */}
                 <WhatsAppSection messages={generatedPlan.whatsappMessages} />
 
-                {/* 6. Roteiro básico da cerimônia */}
+                {/* 6. Roteiro básico da cerimônia (Itens Confirmados) */}
                 <CeremonyScriptSection steps={generatedPlan.ceremonyScript} />
 
-                {/* 7. Plano para imprevistos */}
+                {/* 7. Sugestões do Cerimonial IA (Área separada para itens e momentos não informados) */}
+                {generatedPlan.cerimonialSuggestions && generatedPlan.cerimonialSuggestions.length > 0 && (
+                  <CerimonialSuggestionsSection
+                    suggestions={generatedPlan.cerimonialSuggestions}
+                  />
+                )}
+
+                {/* 8. Plano para imprevistos */}
                 <ContingencySection
                   contingencies={generatedPlan.contingencyPlan}
                 />
 
-                {/* 8. Checklist do Dia D */}
+                {/* 9. Checklist do Dia D */}
                 <DayDChecklistSection items={generatedPlan.dayDChecklist} />
 
-                {/* 9. Checklist pós-evento */}
+                {/* 10. Checklist pós-evento */}
                 <PostEventChecklistSection
                   items={generatedPlan.postEventChecklist}
                 />

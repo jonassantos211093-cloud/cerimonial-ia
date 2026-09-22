@@ -79,9 +79,23 @@ export interface CeremonyStep {
   order: number;
   title: string;
   participants: string;
-  participantsSource: 'CLIENT_DATA' | 'CERIMONIAL_SUGGESTION';
+  participantsSource: 'CLIENT_DATA' | 'CERIMONIAL_SUGGESTION' | 'NOT_INFORMED';
   details: string;
   tip?: string;
+  isConfirmedByClient: boolean;
+}
+
+export interface CerimonialSuggestionItem {
+  id: string;
+  category: 'Cerimônia & Cortejo' | 'Recepção & Tradições' | 'Serviços & Contratações';
+  title: string;
+  description: string;
+  recommendation: string;
+  statusLabel: 'SUGESTÃO DO CERIMONIAL IA';
+  categoryLabel?: string;
+  clientMention?: string;
+  suggestion?: string;
+  impact?: string;
 }
 
 export interface ContingencyPlanItem {
@@ -126,6 +140,7 @@ export interface GeneratedPlan {
   vendors: VendorAssignment[];
   whatsappMessages: WhatsAppTemplate[];
   ceremonyScript: CeremonyStep[];
+  cerimonialSuggestions: CerimonialSuggestionItem[];
   contingencyPlan: ContingencyPlanItem[];
   dayDChecklist: {
     id: string;

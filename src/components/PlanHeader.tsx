@@ -46,6 +46,9 @@ export const PlanHeader: React.FC<PlanHeaderProps> = ({
     { id: 'fornecedores', label: 'Fornecedores' },
     { id: 'whatsapp', label: 'WhatsApp' },
     { id: 'cerimonia', label: 'Roteiro Cerimônia' },
+    ...(plan.cerimonialSuggestions && plan.cerimonialSuggestions.length > 0
+      ? [{ id: 'sugestoes-cerimonial-ia', label: `Sugestões IA (${plan.cerimonialSuggestions.length})` }]
+      : []),
     { id: 'imprevistos', label: 'Imprevistos' },
     { id: 'dia-d', label: 'Checklist Dia D' },
     { id: 'pos-evento', label: 'Pós-Evento' },

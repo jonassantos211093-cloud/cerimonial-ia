@@ -24,6 +24,7 @@ interface EventFormProps {
   onSubmit: (e: React.FormEvent) => void;
   onResetExample: () => void;
   onClearForm: () => void;
+  onLoadPedroMaria?: () => void;
 }
 
 export const EventForm: React.FC<EventFormProps> = ({
@@ -32,6 +33,7 @@ export const EventForm: React.FC<EventFormProps> = ({
   onSubmit,
   onResetExample,
   onClearForm,
+  onLoadPedroMaria,
 }) => {
   const handleInputChange = (
     field: keyof WeddingFormData,
@@ -84,7 +86,19 @@ export const EventForm: React.FC<EventFormProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {onLoadPedroMaria && (
+              <button
+                type="button"
+                onClick={onLoadPedroMaria}
+                className="inline-flex items-center gap-1.5 text-xs text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg border border-emerald-200 transition-colors cursor-pointer font-medium"
+                title="Carregar caso de teste: Pedro e Maria, 04/02/2027, 50 convidados com demais campos vazios"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Teste: Pedro e Maria (Campos Vazios)</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={onClearForm}
@@ -99,10 +113,10 @@ export const EventForm: React.FC<EventFormProps> = ({
               type="button"
               onClick={onResetExample}
               className="inline-flex items-center gap-1.5 text-xs text-amber-900 hover:text-amber-950 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-200/80 transition-colors cursor-pointer"
-              title="Carregar exemplo de demonstração com os noivos fictícios Jéssica e Pedro"
+              title="Carregar exemplo completo com Jéssica e Pedro"
             >
               <RotateCcw className="w-3.5 h-3.5 text-amber-700" />
-              <span>Carregar Exemplo (Jéssica & Pedro)</span>
+              <span>Exemplo Completo</span>
             </button>
           </div>
         </div>

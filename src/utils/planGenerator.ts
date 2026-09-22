@@ -9,6 +9,7 @@ import {
   PendingInfoItem,
   ServiceStatusItem,
   PreparationChecklistPhase,
+  CerimonialSuggestionItem,
 } from '../types';
 
 export const EMPTY_WEDDING_DATA: WeddingFormData = {
@@ -16,6 +17,21 @@ export const EMPTY_WEDDING_DATA: WeddingFormData = {
   weddingDate: '',
   cityAndVenue: '',
   guestCount: '',
+  ceremonyTime: '',
+  receptionTime: '',
+  endTime: '',
+  weddingStyle: '',
+  contractedVendors: '',
+  vipPeople: '',
+  specialNeeds: '',
+  notes: '',
+};
+
+export const PEDRO_MARIA_TEST_DATA: WeddingFormData = {
+  coupleNames: 'Pedro e Maria',
+  weddingDate: '2027-02-04',
+  cityAndVenue: '',
+  guestCount: 50,
   ceremonyTime: '',
   receptionTime: '',
   endTime: '',
@@ -385,8 +401,22 @@ export function generateWeddingPlan(data: WeddingFormData): GeneratedPlan {
 
   const daysUntilObj = calculateDaysUntil(data.weddingDate);
 
+  // Análise detalhada do briefing para verificar o que foi expressamente informado
+  const allBriefingText = `${data.contractedVendors || ''} ${data.vipPeople || ''} ${data.notes || ''}`.toLowerCase();
+  const checkMention = (keywords: string[]): boolean => {
+    return keywords.some((kw) => allBriefingText.includes(kw));
+  };
+
+  const hasInformedPadrinhos = Boolean(hasVipPeople && checkMention(['padrinho', 'padrinhos', 'madrinha', 'madrinhas', 'casais', 'cortejo']));
+  const hasInformedPais = checkMention(['pais', 'pai', 'mãe', 'mae']);
+  const hasInformedPajens = checkMention(['pajem', 'pajens', 'dama', 'damas', 'florista', 'criança', 'crianca', 'crianças']);
+  const hasInformedAliancas = checkMention(['aliança', 'alianca', 'alianças', 'aliancas', 'porta-aliança', 'porta aliança']);
+  const hasInformedAssinaturas = checkMention(['assinatura', 'assinaturas', 'ata', 'testemunha', 'testemunhas', 'livro']);
+  const hasInformedBuque = checkMention(['buquê', 'buque']);
+  const hasInformedBoloDoces = checkMention(['bolo', 'doce', 'doces', 'mesa de doce', 'mesa de doces']);
+
   // Build Day Timeline - strictly separating CLIENT_DATA from CERIMONIAL_SUGGESTION
-  // STRICT RULE: If vendor/service was not informed by client, responsible is 'Responsável: A definir'
+  // STRICT RULE: momentos não informados pelo cliente NÃO entram como fatos confirmados do cronograma
   const timeline: DayTimelineItem[] = [];
 
   const coupleDisplayName = hasCoupleNames ? data.coupleNames : 'Noivos';
@@ -405,315 +435,302 @@ export function generateWeddingPlan(data: WeddingFormData): GeneratedPlan {
     };
   };
 
-  // 1. Início da Montagem
-  const tMontagem = getTimeString(-390, 'Sugestão: ~6h30 antes da cerimônia');
+  // 1. Abertura do Espaço & Vistoria Inicial
+  const tAbertura = getTimeString(-390, 'Sugestão: ~6h30 antes da cerimônia');
   timeline.push({
-    id: 'time-montagem',
-    time: tMontagem.time,
-    isTimeDefined: tMontagem.isDefined,
-    title: serviceStatus.decoracao
-      ? 'Início da Montagem da Decoração & Cenografia'
-      : 'Início da Montagem no Local (Serviço de decoração não informado)',
-    description: serviceStatus.decoracao
-      ? `Abertura do espaço e acompanhamento da chegada da decoração informada em ${venueDisplayName}. Vistoria de layout e pontos de energia.`
-      : `Abertura do espaço em ${venueDisplayName}. Serviço de decoração não informado pelo cliente. Sugestão: caso contratado, prever ~6h30 de antecedência.`,
-    responsible: serviceStatus.decoracao
-      ? 'Equipe de Decoração Informada & Cerimonial'
-      : 'Responsável: A definir',
+    id: 'time-abertura-espaco',
+    time: tAbertura.time,
+    isTimeDefined: tAbertura.isDefined,
+    title: 'Abertura do Espaço & Vistoria Inicial das Instalações',
+    description: `Abertura das portas em ${venueDisplayName}. Vistoria de iluminação, pontos de energia, banheiros e climatização.`,
+    responsible: hasCityAndVenue ? 'Administração do Espaço & Cerimonial' : 'Responsável: A definir',
     phase: 'pre',
     sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: 'SUGESTÃO',
   });
 
-  // 2. Montagem de Gastronomia / Buffet
-  const tBuffet = getTimeString(-210, 'Sugestão: ~3h30 antes da cerimônia');
-  timeline.push({
-    id: 'time-buffet-chegada',
-    time: tBuffet.time,
-    isTimeDefined: tBuffet.isDefined,
-    title: serviceStatus.buffet
-      ? 'Chegada da Equipe de Buffet & Gastronomia'
-      : 'Chegada da Gastronomia (Serviço de buffet não informado)',
-    description: serviceStatus.buffet
-      ? `Chegada da equipe do buffet contratado para montagem de louças, mise-en-place e refrigeração de bebidas.`
-      : `Serviço de buffet não informado pelo cliente. Não presumir buffet contratado; caso haja serviço de alimentação, sugerir chegada com ~3h30 de antecedência.`,
-    responsible: serviceStatus.buffet
-      ? 'Equipe do Buffet Informada'
-      : 'Responsável: A definir',
-    phase: 'pre',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
+  // Se o cliente informou decoração
+  if (serviceStatus.decoracao) {
+    timeline.push({
+      id: 'time-decoracao',
+      time: getTimeString(-360, 'Sugestão: ~6h antes da cerimônia').time,
+      isTimeDefined: ceremonyMin !== null,
+      title: 'Montagem da Decoração & Cenografia (Informada)',
+      description: `Início da montagem floral e cenográfica pela equipe de decoração informada pelo cliente em ${venueDisplayName}.`,
+      responsible: 'Equipe de Decoração Informada & Cerimonial',
+      phase: 'pre',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  // 3. Chegada de DJ / Som
-  const tSom = getTimeString(-150, 'Sugestão: ~2h30 antes da cerimônia');
-  timeline.push({
-    id: 'time-som',
-    time: tSom.time,
-    isTimeDefined: tSom.isDefined,
-    title: serviceStatus.dj || serviceStatus.musicos
-      ? 'Chegada da Equipe de Som e Passagem de Áudio'
-      : 'Testes de Áudio e Sonorização (Serviço de som/DJ não informado)',
-    description: serviceStatus.dj || serviceStatus.musicos
-      ? `Montagem de cabos, microfones da cerimônia e passagem de som no espaço.`
-      : `Serviço de som/DJ não informado pelo cliente. Sugestão técnica: caso haja músicos ou DJ contratados, testar microfones e caixas com ~2h30 de antecedência.`,
-    responsible: serviceStatus.dj || serviceStatus.musicos
-      ? 'Equipe Musical / DJ Informada'
-      : 'Responsável: A definir',
-    phase: 'pre',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
+  // Se o cliente informou buffet
+  if (serviceStatus.buffet) {
+    timeline.push({
+      id: 'time-buffet-chegada',
+      time: getTimeString(-210, 'Sugestão: ~3h30 antes da cerimônia').time,
+      isTimeDefined: ceremonyMin !== null,
+      title: 'Chegada da Equipe de Buffet & Mise-en-place (Informado)',
+      description: `Montagem de louças, mise-en-place das mesas e refrigeração de bebidas pela equipe de gastronomia informada.`,
+      responsible: 'Equipe do Buffet Informada',
+      phase: 'pre',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  // 4. Chegada de Foto e Vídeo
-  const tFotoPre = getTimeString(-120, 'Sugestão: ~2h antes da cerimônia');
-  timeline.push({
-    id: 'time-foto-pre',
-    time: tFotoPre.time,
-    isTimeDefined: tFotoPre.isDefined,
-    title: serviceStatus.fotografia
-      ? 'Início da Cobertura de Foto & Filme no Local'
-      : 'Cobertura Fotográfica no Local (Serviço de foto/filme não informado)',
-    description: serviceStatus.fotografia
-      ? `Fotos do espaço decorado antes da entrada de convidados e detalhes de ambientação.`
-      : `Serviço de foto/filme não informado pelo cliente. Sugestão: caso contratado, registrar cenografia antes da entrada do público.`,
-    responsible: serviceStatus.fotografia
-      ? 'Fotografia & Vídeo Informados'
-      : 'Responsável: A definir',
-    phase: 'pre',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
+  // Se o cliente informou DJ ou som
+  if (serviceStatus.dj || serviceStatus.musicos) {
+    timeline.push({
+      id: 'time-som-chegada',
+      time: getTimeString(-150, 'Sugestão: ~2h30 antes da cerimônia').time,
+      isTimeDefined: ceremonyMin !== null,
+      title: 'Chegada da Equipe de Som e Passagem de Áudio (Informada)',
+      description: `Passagem de som e teste de microfones da cerimônia e recepção com os profissionais informados pelo cliente.`,
+      responsible: 'DJ / Músicos Informados',
+      phase: 'pre',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  // 5. Chegada do Cerimonial
+  // Se o cliente informou fotografia
+  if (serviceStatus.fotografia) {
+    timeline.push({
+      id: 'time-foto-pre',
+      time: getTimeString(-120, 'Sugestão: ~2h antes da cerimônia').time,
+      isTimeDefined: ceremonyMin !== null,
+      title: 'Início da Cobertura de Foto & Filme no Local (Informada)',
+      description: `Registros cenográficos do espaço decorado antes da entrada de convidados com a equipe de foto informada.`,
+      responsible: 'Equipe de Foto & Filme Informada',
+      phase: 'pre',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
+
+  // Chegada do Cerimonial
   const tCerimonial = getTimeString(-120, 'Sugestão: ~2h antes da cerimônia');
   timeline.push({
     id: 'time-cerimonial-chegada',
     time: tCerimonial.time,
     isTimeDefined: tCerimonial.isDefined,
     title: 'Chegada da Equipe de Cerimonial no Local',
-    description: `Conferência do checklist do Dia D, colocação do kit toalete, checagem de caneta da ata e alinhamento de postos.`,
+    description: `Conferência do checklist operacional do Dia D, checagem dos postos de apoio e alinhamento da recepção.`,
     responsible: 'Coordenação do Cerimonial',
     phase: 'pre',
     sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: 'SUGESTÃO',
   });
 
-  // 6. Chegada do Noivo
-  const tNoivo = getTimeString(-60, 'Sugestão: ~1h antes da cerimônia');
+  // Chegada dos Noivos
+  const tNoivos = getTimeString(-60, 'Sugestão: ~1h antes da cerimônia');
   timeline.push({
-    id: 'time-noivo',
-    time: tNoivo.time,
-    isTimeDefined: tNoivo.isDefined,
-    title: 'Chegada do Noivo ao Local da Cerimônia',
-    description: `Recepção do noivo, colocação da flor de lapela pelo cerimonial e direcionamento a sala privativa.`,
-    responsible: 'Coordenação do Cerimonial & Noivo',
+    id: 'time-noivos-chegada',
+    time: tNoivos.time,
+    isTimeDefined: tNoivos.isDefined,
+    title: 'Chegada dos Noivos ao Local do Evento',
+    description: `Recepção dos noivos ${coupleDisplayName} pela coordenação do cerimonial e direcionamento às salas de apoio.`,
+    responsible: 'Coordenação do Cerimonial & Noivos',
     phase: 'pre',
     sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: 'SUGESTÃO',
   });
 
-  // 7. Chegada dos Padrinhos
-  const tPadrinhos = getTimeString(-45, 'Sugestão: ~45 min antes da cerimônia');
-  timeline.push({
-    id: 'time-padrinhos',
-    time: tPadrinhos.time,
-    isTimeDefined: tPadrinhos.isDefined,
-    title: 'Chegada dos Padrinhos, Madrinhas e Cortejo',
-    description: `Recepção dos casais de padrinhos, colocação de corsages/lapelas e alinhamento da ordem de entrada do cortejo.`,
-    responsible: 'Cerimonial & Padrinhos',
-    phase: 'pre',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
+  // Se o cliente informou padrinhos
+  if (hasInformedPadrinhos) {
+    timeline.push({
+      id: 'time-padrinhos-chegada',
+      time: getTimeString(-45, 'Sugestão: ~45 min antes da cerimônia').time,
+      isTimeDefined: ceremonyMin !== null,
+      title: 'Chegada dos Padrinhos e Madrinhas (Informados)',
+      description: `Recepção do cortejo informado pelo cliente (${data.vipPeople}), colocação de lapelas e alinhamento de ordem.`,
+      responsible: 'Cerimonial & Padrinhos Informados',
+      phase: 'pre',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  // 8. Chegada da Noiva
-  const tNoiva = getTimeString(-20, 'Sugestão: ~20 min antes da cerimônia');
-  timeline.push({
-    id: 'time-noiva',
-    time: tNoiva.time,
-    isTimeDefined: tNoiva.isDefined,
-    title: 'Chegada da Noiva e Posicionamento em Carro / Antessala',
-    description: `Recepção do carro da noiva pelo cerimonial, entrega do buquê e conferência do véu e vestido.`,
-    responsible: 'Cerimonialista Responsável',
-    phase: 'pre',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
-
-  // 9. INÍCIO DA CERIMÔNIA (DADO INFORMADO PELO CLIENTE se fornecido)
+  // INÍCIO DA CERIMÔNIA
   timeline.push({
     id: 'time-cerimonia',
     time: hasCeremonyTime ? data.ceremonyTime : 'A definir (Horário da cerimônia não informado)',
     isTimeDefined: hasCeremonyTime,
     title: 'Início Oficial da Cerimônia de Casamento',
-    description: `Fechamento das portas / acesso, início do cortejo solene (noivo, pais, padrinhos, crianças e noiva).`,
+    description: `Início solene da celebração de casamento de ${coupleDisplayName}. Fechamento de portas e cortejo de entrada.`,
     responsible: serviceStatus.celebrante
       ? 'Celebrante Informado, Cerimonial & Noivos'
       : 'Cerimonial & Noivos (Celebrante não informado - a definir)',
     phase: 'ceremony',
     sourceType: hasCeremonyTime ? 'CLIENT_DATA' : 'CERIMONIAL_SUGGESTION',
-    sourceLabel: hasCeremonyTime ? 'DADO INFORMADO PELO CLIENTE' : 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: hasCeremonyTime ? 'DADO INFORMADO PELO CLIENTE' : 'SUGESTÃO',
   });
 
-  // 10. Troca de Alianças e Votos
+  // Votos dos Noivos
   const tVotos = getTimeString(30, 'Sugestão: ~30 min após início da cerimônia');
   timeline.push({
     id: 'time-votos',
     time: tVotos.time,
     isTimeDefined: tVotos.isDefined,
-    title: 'Votos Matrimoniais & Troca das Alianças',
-    description: `Entrada das alianças, bênção solene, leitura dos votos dos noivos e recolhimento temporário do buquê pelo cerimonial.`,
-    responsible: 'Celebrante & Noivos',
+    title: 'Votos Matrimoniais dos Noivos',
+    description: `Momento solene da manifestação dos votos e confirmação da união de ${coupleDisplayName}.`,
+    responsible: 'Noivos',
     phase: 'ceremony',
     sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: 'SUGESTÃO',
   });
 
-  // 11. Saída dos Noivos
+  // Se o cliente informou alianças
+  if (hasInformedAliancas) {
+    timeline.push({
+      id: 'time-aliancas-rito',
+      time: getTimeString(40, 'Sugestão: ~40 min após início da cerimônia').time,
+      isTimeDefined: ceremonyMin !== null,
+      title: 'Troca Solene das Alianças (Rito Informado)',
+      description: `Entrada das alianças e bênção dos anéis conforme informado pelo cliente no briefing.`,
+      responsible: 'Celebrante & Noivos',
+      phase: 'ceremony',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
+
+  // Saída dos Noivos
   const tSaida = getTimeString(50, 'Sugestão: ~50 min após início da cerimônia');
   timeline.push({
     id: 'time-saida-cerimonia',
     time: tSaida.time,
     isTimeDefined: tSaida.isDefined,
-    title: 'Cortejo de Saída dos Recém-Casados',
-    description: `Saída triunfal dos noivos sob aplausos e condução dos convidados ao espaço de recepção.`,
-    responsible: 'Cerimonial & Noivos',
+    title: 'Saída Solene dos Recém-Casados',
+    description: `Término da cerimônia e saída de ${coupleDisplayName} sob aplausos dos convidados.`,
+    responsible: 'Noivos & Cerimonial',
     phase: 'ceremony',
     sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: 'SUGESTÃO',
   });
 
-  // 12. Fotos Protocolares
-  const tFotos = getTimeString(60, 'Sugestão: ~1h após início da cerimônia');
-  timeline.push({
-    id: 'time-fotos-oficiais',
-    time: tFotos.time,
-    isTimeDefined: tFotos.isDefined,
-    title: serviceStatus.fotografia
-      ? 'Sessão de Fotos Protocolares com Padrinhos e Pais'
-      : 'Fotos Protocolares com Pais e Padrinhos (Serviço de foto não informado)',
-    description: serviceStatus.fotografia
-      ? `Fotos formais no altar ou espaço cenográfico. Limite sugerido de 20 minutos para permitir aos noivos aproveitarem a recepção.`
-      : `Serviço de fotografia não informado pelo cliente. Sugestão: destinar até 20 minutos para fotos com padrinhos e familiares imediatos.`,
-    responsible: serviceStatus.fotografia
-      ? 'Fotografia Informada & Cerimonial'
-      : 'Responsável: A definir',
-    phase: 'reception',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
+  // Se o cliente informou fotografia
+  if (serviceStatus.fotografia) {
+    timeline.push({
+      id: 'time-fotos-oficiais',
+      time: getTimeString(60, 'Sugestão: ~1h após início da cerimônia').time,
+      isTimeDefined: ceremonyMin !== null,
+      title: 'Sessão de Fotos Protocolares (Fotografia Informada)',
+      description: `Fotos formais dos noivos com familiares e cortejo junto à equipe de fotografia informada.`,
+      responsible: 'Fotografia Informada & Cerimonial',
+      phase: 'reception',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  // 13. ABERTURA DA RECEPÇÃO (DADO INFORMADO PELO CLIENTE se fornecido)
+  // Abertura da Recepção / Confraternização
   timeline.push({
     id: 'time-recepcao',
     time: hasReceptionTime ? data.receptionTime : 'A definir (Horário da recepção não informado)',
     isTimeDefined: hasReceptionTime,
-    title: 'Abertura da Recepção & Coquetel de Boas-Vindas',
-    description: `Abertura oficial do salão de festas e recepção de convidados.`,
+    title: 'Início da Recepção & Confraternização',
+    description: `Acolhimento dos convidados no espaço de festa. Serviços gastronômicos e atrações a definir (não informados pelo cliente).`,
     responsible: serviceStatus.buffet
       ? 'Equipe do Buffet Informada & Cerimonial'
       : 'Responsável: A definir',
     phase: 'reception',
     sourceType: hasReceptionTime ? 'CLIENT_DATA' : 'CERIMONIAL_SUGGESTION',
-    sourceLabel: hasReceptionTime ? 'DADO INFORMADO PELO CLIENTE' : 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: hasReceptionTime ? 'DADO INFORMADO PELO CLIENTE' : 'SUGESTÃO',
   });
 
-  // 14. Serviço Gastronômico Principal
-  const baseReceptionMin = receptionMin !== null
-    ? receptionMin
-    : (ceremonyMin !== null ? ceremonyMin + 75 : null);
+  // Se o cliente informou buffet
+  if (serviceStatus.buffet) {
+    const baseRecMin = receptionMin !== null ? receptionMin : (ceremonyMin !== null ? ceremonyMin + 75 : null);
+    timeline.push({
+      id: 'time-buffet-servico',
+      time: baseRecMin !== null ? minutesToTimeString(baseRecMin + 45) : 'A definir (~45 min após início da recepção)',
+      isTimeDefined: baseRecMin !== null,
+      title: 'Serviço Gastronômico Principal (Buffet Informado)',
+      description: `Abertura do serviço de alimentação aos convidados pela equipe informada. Atenção a restrições (${hasSpecialNeeds ? data.specialNeeds : 'nenhuma restrição informada'}).`,
+      responsible: 'Equipe do Buffet Informada',
+      phase: 'reception',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  const tJantar = baseReceptionMin !== null
-    ? { time: minutesToTimeString(baseReceptionMin + 45), isDefined: true }
-    : { time: 'A definir (~45 min após início da recepção)', isDefined: false };
+  // Se o cliente informou bolo / doces
+  if (hasInformedBoloDoces) {
+    const baseRecMin = receptionMin !== null ? receptionMin : (ceremonyMin !== null ? ceremonyMin + 75 : null);
+    timeline.push({
+      id: 'time-bolo-doces',
+      time: baseRecMin !== null ? minutesToTimeString(baseRecMin + 100) : 'A definir (~1h40 após início da recepção)',
+      isTimeDefined: baseRecMin !== null,
+      title: 'Corte do Bolo & Liberação da Mesa de Doces (Informado)',
+      description: `Momento fotográfico do casal junto ao bolo e liberação aos convidados conforme informado pelo cliente.`,
+      responsible: 'Cerimonial & Noivos',
+      phase: 'reception',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  timeline.push({
-    id: 'time-jantar',
-    time: tJantar.time,
-    isTimeDefined: tJantar.isDefined,
-    title: serviceStatus.buffet
-      ? 'Serviço Gastronômico Principal (Buffet Informado)'
-      : 'Momento Gastronômico (Serviço de buffet não informado)',
-    description: serviceStatus.buffet
-      ? `Serviço do buffet liberado para os convidados. Atenção especial a restrições alimentares informadas pelo cliente (${hasSpecialNeeds ? data.specialNeeds : 'nenhuma restrição cadastrada'}).`
-      : `Serviço de buffet não informado pelo cliente. Não presumir contratação; caso haja serviço gastronômico contratado, alinhar horário de abertura com a equipe responsável.`,
-    responsible: serviceStatus.buffet
-      ? 'Equipe do Buffet Informada'
-      : 'Responsável: A definir',
-    phase: 'reception',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
+  // Se o cliente informou DJ ou música para pista
+  if (serviceStatus.dj || serviceStatus.musicos) {
+    const baseRecMin = receptionMin !== null ? receptionMin : (ceremonyMin !== null ? ceremonyMin + 75 : null);
+    timeline.push({
+      id: 'time-pista-danca',
+      time: baseRecMin !== null ? minutesToTimeString(baseRecMin + 120) : 'A definir (~2h após início da recepção)',
+      isTimeDefined: baseRecMin !== null,
+      title: 'Primeira Dança dos Noivos & Abertura da Pista (Música Informada)',
+      description: `Dança do casal e abertura oficial da pista com os profissionais de som informados pelo cliente.`,
+      responsible: 'DJ / Músicos Informados & Cerimonial',
+      phase: 'reception',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  // 15. Dança e Pista
-  const tPista = baseReceptionMin !== null
-    ? { time: minutesToTimeString(baseReceptionMin + 120), isDefined: true }
-    : { time: 'A definir (~2h após início da recepção)', isDefined: false };
+  // Se o cliente informou buquê
+  if (hasInformedBuque) {
+    const baseRecMin = receptionMin !== null ? receptionMin : (ceremonyMin !== null ? ceremonyMin + 75 : null);
+    timeline.push({
+      id: 'time-buque-momento',
+      time: baseRecMin !== null ? minutesToTimeString(baseRecMin + 210) : 'A definir (~3h30 após início da recepção)',
+      isTimeDefined: baseRecMin !== null,
+      title: 'Momento da Jogada do Buquê (Informado)',
+      description: `Atração da jogada do buquê aos convidados conforme informado pelo cliente no briefing.`,
+      responsible: 'Cerimonial & Noiva',
+      phase: 'reception',
+      sourceType: 'CERIMONIAL_SUGGESTION',
+      sourceLabel: 'SUGESTÃO',
+    });
+  }
 
-  timeline.push({
-    id: 'time-pista',
-    time: tPista.time,
-    isTimeDefined: tPista.isDefined,
-    title: serviceStatus.dj || serviceStatus.musicos
-      ? 'Primeira Dança dos Noivos & Abertura da Pista'
-      : 'Abertura da Pista de Dança (Serviço de DJ/música não informado)',
-    description: serviceStatus.dj || serviceStatus.musicos
-      ? `Dança do casal, seguida por abertura da pista de dança com a equipe de som informada.`
-      : `Serviço de som/DJ não informado pelo cliente. Sugestão: caso haja atração musical contratada, sincronizar abertura da pista com o cerimonial.`,
-    responsible: serviceStatus.dj || serviceStatus.musicos
-      ? 'DJ / Músicos informados'
-      : 'Responsável: A definir',
-    phase: 'reception',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
-
-  // 16. Buquê
-  const tBuque = baseReceptionMin !== null
-    ? { time: minutesToTimeString(baseReceptionMin + 240), isDefined: true }
-    : { time: 'A definir (~4h após início da recepção)', isDefined: false };
-
-  timeline.push({
-    id: 'time-buque',
-    time: tBuque.time,
-    isTimeDefined: tBuque.isDefined,
-    title: 'Momento do Buquê & Mesa de Doces',
-    description: `Momento descontraído da jogada do buquê e liberação da mesa de café e lembrancinhas.`,
-    responsible: 'Cerimonial & Noivos',
-    phase: 'reception',
-    sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
-  });
-
-  // 17. Encerramento (DADO INFORMADO PELO CLIENTE se fornecido)
+  // Encerramento do Evento
   timeline.push({
     id: 'time-encerramento',
     time: hasEndTime ? data.endTime : 'A definir (Horário de encerramento não informado)',
     isTimeDefined: hasEndTime,
-    title: 'Encerramento Musical & Despedida',
-    description: `Término da música, guarda dos pertences pessoais dos noivos e recolhimento de presentes.`,
+    title: 'Encerramento do Evento & Despedida',
+    description: `Término da celebração, despedida dos convidados e recolhimento dos pertences pessoais dos noivos.`,
     responsible: 'Cerimonial & Noivos',
     phase: 'post',
     sourceType: hasEndTime ? 'CLIENT_DATA' : 'CERIMONIAL_SUGGESTION',
-    sourceLabel: hasEndTime ? 'DADO INFORMADO PELO CLIENTE' : 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: hasEndTime ? 'DADO INFORMADO PELO CLIENTE' : 'SUGESTÃO',
   });
 
-  // 18. Desmontagem
-  const tDesmontagem = endMin !== null
+  // Vistoria Final e Fechamento do Local
+  const tFechamento = endMin !== null
     ? { time: minutesToTimeString(endMin + 45), isDefined: true }
     : { time: 'A definir (~45 min após encerramento)', isDefined: false };
-
   timeline.push({
-    id: 'time-desmontagem',
-    time: tDesmontagem.time,
-    isTimeDefined: tDesmontagem.isDefined,
-    title: 'Conferência Final & Início da Desmontagem',
-    description: `Conferência de itens junto ao espaço e liberação das equipes informadas para desmontagem técnica.`,
-    responsible: hasVendors ? 'Fornecedores Informados & Cerimonial' : 'Responsável: A definir',
+    id: 'time-fechamento',
+    time: tFechamento.time,
+    isTimeDefined: tFechamento.isDefined,
+    title: 'Vistoria Final & Fechamento do Local',
+    description: `Conferência do espaço físico com a administração do local e entrega das chaves.`,
+    responsible: hasCityAndVenue ? 'Administração do Espaço & Cerimonial' : 'Responsável: A definir',
     phase: 'post',
     sourceType: 'CERIMONIAL_SUGGESTION',
-    sourceLabel: 'SUGESTÃO DO CERIMONIAL IA',
+    sourceLabel: 'SUGESTÃO',
   });
 
   // VENDORS: STRICT RULE - NEVER INVENT SUPPLIERS
@@ -944,82 +961,371 @@ export function generateWeddingPlan(data: WeddingFormData): GeneratedPlan {
     },
   ];
 
-  // Ceremony Script - strictly no invented quantities
-  const padrinhosParticipants = hasVipPeople
-    ? data.vipPeople
-    : 'Cortejo de padrinhos (Quantidade não informada pelo cliente - a definir)';
+  // Verificação expressa de acompanhantes nas entradas informados no briefing
+  const vipLower = (data.vipPeople || '').toLowerCase();
+  const notesLower = (data.notes || '').toLowerCase();
+  const entryBriefingText = `${vipLower} ${notesLower}`;
 
-  const ceremonyScript: CeremonyStep[] = [
-    {
-      order: 1,
-      title: 'Entrada do Noivo',
-      participants: 'Noivo acompanhado por mãe ou figura de honra',
-      participantsSource: 'CERIMONIAL_SUGGESTION',
-      details: 'Posicionamento do noivo no altar à espera dos demais participantes.',
-      tip: 'Verificar alinhamento da lapela e respiração antes da entrada.',
-    },
-    {
-      order: 2,
+  // Entrada do Noivo: se o cliente mencionou expressamente quem entra com o noivo
+  const groomHasCustomAcompanhante =
+    entryBriefingText.includes('mãe do noivo') ||
+    entryBriefingText.includes('mae do noivo') ||
+    entryBriefingText.includes('pai do noivo') ||
+    entryBriefingText.includes('noivo entra com') ||
+    entryBriefingText.includes('acompanhante do noivo');
+
+  const groomParticipants: string = groomHasCustomAcompanhante
+    ? 'Noivo acompanhado conforme informado no briefing'
+    : 'Não informado';
+  const groomParticipantsSource: 'CLIENT_DATA' | 'NOT_INFORMED' = groomHasCustomAcompanhante
+    ? 'CLIENT_DATA'
+    : 'NOT_INFORMED';
+
+  // Entrada da Noiva: se o cliente mencionou expressamente quem entra com a noiva
+  const brideHasCustomAcompanhante =
+    entryBriefingText.includes('pai da noiva') ||
+    entryBriefingText.includes('mãe da noiva') ||
+    entryBriefingText.includes('mae da noiva') ||
+    entryBriefingText.includes('noiva entra com') ||
+    entryBriefingText.includes('acompanhante da noiva');
+
+  const brideParticipants: string = brideHasCustomAcompanhante
+    ? 'Noiva acompanhada conforme informado no briefing'
+    : 'Não informado';
+  const brideParticipantsSource: 'CLIENT_DATA' | 'NOT_INFORMED' = brideHasCustomAcompanhante
+    ? 'CLIENT_DATA'
+    : 'NOT_INFORMED';
+
+  // Ceremony Script - strictly confirmed moments only; unconfirmed items go to cerimonialSuggestions
+  const ceremonyScript: CeremonyStep[] = [];
+  let scriptOrder = 1;
+
+  // 1. Entrada do Noivo
+  ceremonyScript.push({
+    order: scriptOrder++,
+    title: 'Entrada do Noivo',
+    participants: groomParticipants,
+    participantsSource: groomParticipantsSource,
+    details: groomParticipantsSource === 'CLIENT_DATA'
+      ? 'Entrada solene do noivo ao altar acompanhado conforme especificado no briefing.'
+      : 'Entrada solene do noivo ao altar. O cliente não informou acompanhante para a entrada (ex: mãe, pai ou entrada solo). Acompanhamento ou entrada solo a definir pelo casal.',
+    tip: 'O cerimonial aguarda definição do casal sobre o acompanhamento para alinhar o cortejo.',
+    isConfirmedByClient: true,
+  });
+
+  // 2. Pais dos noivos (SOMENTE se informado pelo cliente)
+  if (hasInformedPais) {
+    ceremonyScript.push({
+      order: scriptOrder++,
       title: 'Entrada dos Pais dos Noivos',
-      participants: 'Pai do Noivo e Mãe da Noiva (ou composição definida pela família)',
-      participantsSource: 'CERIMONIAL_SUGGESTION',
-      details: 'Posicionamento dos pais em seus respectivos lados no altar.',
-    },
-    {
-      order: 3,
+      participants: data.vipPeople || 'Pais dos noivos conforme informado',
+      participantsSource: 'CLIENT_DATA',
+      details: 'Posicionamento solene dos pais em seus respectivos lados no altar.',
+      isConfirmedByClient: true,
+    });
+  }
+
+  // 3. Cortejo de Padrinhos (SOMENTE se informado pelo cliente)
+  if (hasInformedPadrinhos) {
+    ceremonyScript.push({
+      order: scriptOrder++,
       title: 'Cortejo de Padrinhos e Madrinhas',
-      participants: padrinhosParticipants,
-      participantsSource: hasVipPeople ? 'CLIENT_DATA' : 'CERIMONIAL_SUGGESTION',
-      details: 'Entrada compassada dos casais mantendo espaçamento adequado para visibilidade e fotos.',
+      participants: data.vipPeople,
+      participantsSource: 'CLIENT_DATA',
+      details: 'Entrada compassada dos casais de padrinhos informados pelo cliente no briefing.',
       tip: 'Sugestão técnica: manter intervalo de 3 a 4 metros entre cada casal.',
-    },
-    {
-      order: 4,
+      isConfirmedByClient: true,
+    });
+  }
+
+  // 4. Pajens e Floristas (SOMENTE se informado pelo cliente)
+  if (hasInformedPajens) {
+    ceremonyScript.push({
+      order: scriptOrder++,
       title: 'Entrada de Pajens e Crianças de Honra',
-      participants: 'Pajens / Damas de honra (conforme definido pelos noivos)',
-      participantsSource: 'CERIMONIAL_SUGGESTION',
-      details: 'Entrada com plaquinha, floristas ou anúncio da chegada da noiva.',
-      tip: 'Sugestão técnica: ter sempre um familiar de apoio próximo ao altar.',
-    },
-    {
-      order: 5,
-      title: 'Entrada Triunfal da Noiva',
-      participants: 'Noiva acompanhada pelo pai ou acompanhante de honra',
-      participantsSource: 'CERIMONIAL_SUGGESTION',
-      details: 'Momento solene da entrada e encontro com o noivo no altar.',
-    },
-    {
-      order: 6,
-      title: serviceStatus.celebrante ? 'Mensagem do Celebrante e Votos' : 'Mensagem e Votos (Celebrante não informado - a definir)',
-      participants: serviceStatus.celebrante
-        ? 'Celebrante Informado e Noivos'
-        : 'Celebrante (Serviço não informado - a definir) e Noivos',
-      participantsSource: serviceStatus.celebrante ? 'CLIENT_DATA' : 'CERIMONIAL_SUGGESTION',
-      details: `${data.notes ? `Instrução do cliente: ${data.notes}` : 'Mensagem celebrativa e confirmação do consentimento mútuo.'}`,
-    },
-    {
-      order: 7,
-      title: 'Entrada das Alianças e Bênção',
-      participants: 'Porta-alianças',
-      participantsSource: 'CERIMONIAL_SUGGESTION',
-      details: 'Entrega das alianças para a bênção solene e troca dos anéis.',
-      tip: 'O cerimonial recolhe o buquê da noiva durante a troca de alianças.',
-    },
-    {
-      order: 8,
-      title: 'Assinaturas e Bênção Final',
+      participants: 'Crianças de honra conforme informado pelo cliente',
+      participantsSource: 'CLIENT_DATA',
+      details: 'Entrada das crianças de honra informadas pelo cliente no briefing.',
+      isConfirmedByClient: true,
+    });
+  }
+
+  // 5. Entrada da Noiva
+  ceremonyScript.push({
+    order: scriptOrder++,
+    title: 'Entrada da Noiva',
+    participants: brideParticipants,
+    participantsSource: brideParticipantsSource,
+    details: brideParticipantsSource === 'CLIENT_DATA'
+      ? 'Entrada solene da noiva acompanhada conforme especificado no briefing.'
+      : 'Entrada solene da noiva ao local da celebração. O cliente não informou acompanhante para a entrada (ex: pai, mãe ou entrada solo). Acompanhamento ou entrada solo a definir pelo casal.',
+    tip: 'O cerimonial aguarda definição do casal sobre o acompanhamento para orientar a porta de entrada.',
+    isConfirmedByClient: true,
+  });
+
+  // 6. Celebração e Votos dos Noivos
+  ceremonyScript.push({
+    order: scriptOrder++,
+    title: serviceStatus.celebrante ? 'Mensagem do Celebrante & Votos dos Noivos' : 'Celebração da União & Votos dos Noivos',
+    participants: serviceStatus.celebrante
+      ? 'Celebrante Informado e Noivos'
+      : 'Noivos (Celebrante: Não informado)',
+    participantsSource: serviceStatus.celebrante ? 'CLIENT_DATA' : 'NOT_INFORMED',
+    details: serviceStatus.celebrante
+      ? 'Mensagem matrimonial conduzida pelo celebrante informado e leitura dos votos dos noivos.'
+      : 'Momento solene da manifestação dos votos do casal. O celebrante ou autoridade condutora não foi informado pelo cliente.',
+    isConfirmedByClient: true,
+  });
+
+  // 7. Alianças (SOMENTE se informado pelo cliente)
+  if (hasInformedAliancas) {
+    ceremonyScript.push({
+      order: scriptOrder++,
+      title: 'Entrada das Alianças & Bênção dos Anéis',
+      participants: 'Porta-alianças informado pelo cliente',
+      participantsSource: 'CLIENT_DATA',
+      details: 'Entrega solene das alianças para bênção e troca dos anéis entre os noivos.',
+      isConfirmedByClient: true,
+    });
+  }
+
+  // 8. Assinaturas (SOMENTE se informado pelo cliente)
+  if (hasInformedAssinaturas) {
+    ceremonyScript.push({
+      order: scriptOrder++,
+      title: 'Assinaturas da Ata & Testemunhas',
       participants: 'Noivos, Testemunhas e Celebrante',
-      participantsSource: 'CERIMONIAL_SUGGESTION',
-      details: 'Assinatura dos livros oficiais / ata civil ou religiosa.',
-    },
-    {
-      order: 9,
-      title: 'Cortejo de Saída dos Recém-Casados',
-      participants: 'Noivos seguidos pelo cortejo',
-      participantsSource: 'CERIMONIAL_SUGGESTION',
-      details: 'Saída festiva sob aplausos e condução dos convidados à recepção.',
-    },
-  ];
+      participantsSource: 'CLIENT_DATA',
+      details: 'Assinatura dos livros oficiais ou ata solene de casamento.',
+      isConfirmedByClient: true,
+    });
+  }
+
+  // 9. Saída dos Recém-Casados
+  ceremonyScript.push({
+    order: scriptOrder++,
+    title: 'Saída Solene dos Recém-Casados',
+    participants: hasInformedPadrinhos
+      ? 'Noivos seguidos pelo cortejo informado'
+      : 'Noivos (Cortejo de saída: Não informado)',
+    participantsSource: hasInformedPadrinhos ? 'CLIENT_DATA' : 'NOT_INFORMED',
+    details: 'Saída solene dos recém-casados sob aplausos dos convidados ao término da celebração.',
+    isConfirmedByClient: true,
+  });
+
+  // SEPARATED SECTION: "Sugestões do Cerimonial IA"
+  // Itens, momentos e serviços não informados pelo cliente são listados EXCLUSIVAMENTE aqui como sugestões
+  const cerimonialSuggestions: CerimonialSuggestionItem[] = [];
+
+  if (!hasInformedAliancas) {
+    cerimonialSuggestions.push({
+      id: 'sug-aliancas',
+      title: 'Rito de Entrada das Alianças & Bênção dos Anéis',
+      category: 'Cerimônia & Cortejo',
+      categoryLabel: 'Cerimônia & Cortejo',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Momento não informado pelo cliente no briefing. A presença de daminhas, pajens ou porta-alianças não está confirmada.',
+      recommendation: 'Caso o casal planeje o momento da bênção e troca de alianças, definir previamente quem conduzirá as alianças (porta-alianças, pajem, avós ou noivo no bolso) e a música de fundo.',
+      clientMention: 'Momento não informado pelo cliente no briefing',
+      suggestion: 'Definir previamente quem conduzirá as alianças e a trilha sonora.',
+      impact: 'Evita incertezas na condução da cerimônia e garante fotos de primeiro plano dos anéis.',
+    });
+  }
+
+  if (!hasInformedAssinaturas) {
+    cerimonialSuggestions.push({
+      id: 'sug-assinaturas',
+      title: 'Assinatura da Ata Civil, Religiosa ou Livro de Honra',
+      category: 'Cerimônia & Cortejo',
+      categoryLabel: 'Cerimônia & Cortejo',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Assinatura de ata civil ou religiosa não informada pelo cliente.',
+      recommendation: 'Caso o casamento tenha efeito civil no local ou assinaturas com testemunhas, providenciar mesa de apoio discreta no altar com caneta de tinta preta testada.',
+      clientMention: 'Momento não informado pelo cliente no briefing',
+      suggestion: 'Providenciar mesa de apoio no altar com caneta testada caso haja assinaturas.',
+      impact: 'Mantém a formalidade jurídica sem atrasar a saída dos noivos.',
+    });
+  }
+
+  if (!hasInformedPadrinhos) {
+    cerimonialSuggestions.push({
+      id: 'sug-padrinhos',
+      title: 'Cortejo de Padrinhos e Madrinhas no Altar',
+      category: 'Cerimônia & Cortejo',
+      categoryLabel: 'Cerimônia & Cortejo',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Padrinhos, madrinhas ou cortejo solene não informados pelo cliente.',
+      recommendation: 'Caso optem por cortejo tradicional com padrinhos, informar a lista de casais com antecedência para que o cerimonial organize a ordem de entrada, lapelas e disposição dos lados no altar.',
+      clientMention: 'Participantes e cortejo não informados pelo cliente',
+      suggestion: 'Informar lista de padrinhos com antecedência para organizar lapelas e altar.',
+      impact: 'Garante simetria estética no altar e fluxo harmonioso de fotos.',
+    });
+  }
+
+  if (!hasInformedPais) {
+    cerimonialSuggestions.push({
+      id: 'sug-pais',
+      title: 'Entrada Dedicada dos Pais dos Noivos',
+      category: 'Cerimônia & Cortejo',
+      categoryLabel: 'Cerimônia & Cortejo',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Composição e ordem de entrada dos pais não informadas pelo cliente.',
+      recommendation: 'Definir se os pais entrarão juntos antes do noivo/noiva ou se acompanharão seus respectivos filhos na entrada solene ao altar.',
+      clientMention: 'Composição de entrada dos pais não informada',
+      suggestion: 'Alinhar com o casal se os pais entram antes ou acompanham os noivos.',
+      impact: 'Previne dúvidas protocolares minutos antes do início do evento.',
+    });
+  }
+
+  if (!hasInformedPajens) {
+    cerimonialSuggestions.push({
+      id: 'sug-pajens',
+      title: 'Entrada de Crianças de Honra (Pajens, Floristas ou Damas)',
+      category: 'Cerimônia & Cortejo',
+      categoryLabel: 'Cerimônia & Cortejo',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Participantes infantis, pajens ou daminhas não informados no briefing.',
+      recommendation: 'Caso haja crianças no cortejo, ter sempre um responsável familiar posicionado próximo ao altar com brinquedo ou atrativo para manter a criança tranquila.',
+      clientMention: 'Participantes infantis não informados no briefing',
+      suggestion: 'Posicionar familiar no altar com atrativo caso haja crianças de honra.',
+      impact: 'Minimiza desvios no tapete da cerimônia e assegura entradas espontâneas.',
+    });
+  }
+
+  if (!serviceStatus.celebrante) {
+    cerimonialSuggestions.push({
+      id: 'sug-celebrante',
+      title: 'Celebrante, Cerimoniário ou Juiz de Paz',
+      category: 'Serviços & Contratações',
+      categoryLabel: 'Serviços & Contratações',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Serviço de celebração não informado como contratado no briefing.',
+      recommendation: 'Definir quem oficializará o casamento (celebrante profissional, autoridade religiosa, juiz de paz ou amigo da família) e alinhar com ele a duração desejada da mensagem (sugestão: 25 a 35 min).',
+      clientMention: 'Serviço de celebração não informado pelo cliente',
+      suggestion: 'Contratar celebrante ou definir autoridade condutora da celebração.',
+      impact: 'Essencial para a fluidez do roteiro e cumprimento do cronograma de início da festa.',
+    });
+  }
+
+  if (!serviceStatus.fotografia) {
+    cerimonialSuggestions.push({
+      id: 'sug-fotografia',
+      title: 'Cobertura de Fotografia e Cinema',
+      category: 'Serviços & Contratações',
+      categoryLabel: 'Serviços & Contratações',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Equipe de fotografia ou vídeo não informada como contratada no briefing.',
+      recommendation: 'Caso contratem fotógrafo, orientar a equipe a chegar no local com 2h de antecedência para captar a cenografia antes da entrada dos convidados e acordar uma lista curta de fotos formais pós-cerimônia.',
+      clientMention: 'Serviço de foto/filme não informado pelo cliente',
+      suggestion: 'Contratar equipe de fotografia e cinema com alinhamento de fotos protocolares.',
+      impact: 'Preserva a memória afetiva e evita retenção excessiva dos noivos em sessões fotográficas extensas.',
+    });
+  }
+
+  if (!serviceStatus.dj && !serviceStatus.musicos) {
+    cerimonialSuggestions.push({
+      id: 'sug-musica',
+      title: 'Sonorização da Cerimônia & DJ/Música da Festa',
+      category: 'Serviços & Contratações',
+      categoryLabel: 'Serviços & Contratações',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Equipe de sonorização, músicos ou DJ não informada como contratada.',
+      recommendation: 'Garantir sonorização adequada com pelo menos dois microfones sem fio de alta sensibilidade para a cerimônia e sistema de som dimensionado para a pista da recepção.',
+      clientMention: 'Serviço musical e de som não informado pelo cliente',
+      suggestion: 'Contratar sonorização profissional para cerimônia e pista.',
+      impact: 'Voz audível em todas as fileiras e transição animada para a festa.',
+    });
+  }
+
+  if (!serviceStatus.buffet) {
+    cerimonialSuggestions.push({
+      id: 'sug-buffet',
+      title: 'Serviço Gastronômico, Buffet & Bebidas',
+      category: 'Serviços & Contratações',
+      categoryLabel: 'Serviços & Contratações',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Serviço de buffet, alimentação ou bar não informado como contratado.',
+      recommendation: 'Definir o formato de serviço (coquetel volante, finger food, ilhas gastronômicas ou empratado) e solicitar conferência das quantidades de gelo e bebidas antes do início da recepção.',
+      clientMention: 'Serviço de buffet não informado pelo cliente',
+      suggestion: 'Definir formato de serviço gastronômico e conferência de insumos.',
+      impact: 'Conforto e satisfação imediata dos convidados ao chegarem da cerimônia.',
+    });
+  }
+
+  if (!serviceStatus.decoracao) {
+    cerimonialSuggestions.push({
+      id: 'sug-decoracao',
+      title: 'Decoração, Flores e Ambientação',
+      category: 'Serviços & Contratações',
+      categoryLabel: 'Serviços & Contratações',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Serviço de decoração e flores não informado como contratado no briefing.',
+      recommendation: 'Caso haja equipe de decoração, solicitar cronograma de montagem com conclusão prevista para 1h antes da chegada dos convidados para que o cerimonial faça a vistoria de velas, toalhas e iluminação.',
+      clientMention: 'Serviço de decoração não informado pelo cliente',
+      suggestion: 'Alinhar cronograma de montagem floral e cenográfica com antecedência.',
+      impact: 'Garante ambiente impecável e tempo hábil para ajustes florais.',
+    });
+  }
+
+  if (!serviceStatus.gerador) {
+    cerimonialSuggestions.push({
+      id: 'sug-gerador',
+      title: 'Gerador de Energia de Emergência',
+      category: 'Serviços & Contratações',
+      categoryLabel: 'Serviços & Contratações',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Gerador elétrico não informado como contratado ou disponível no espaço.',
+      recommendation: 'Checar se o local possui gerador automático de standby para garantir o funcionamento ininterrupto de som, iluminação cênica e freezers de bebidas em caso de oscilação da concessionária elétrica.',
+      clientMention: 'Gerador não informado pelo cliente',
+      suggestion: 'Verificar redundância de energia para evitar apagões operacionais.',
+      impact: 'Segurança absoluta contra apagões durante a celebração e a pista de dança.',
+    });
+  }
+
+  if (!hasInformedBoloDoces) {
+    cerimonialSuggestions.push({
+      id: 'sug-doces',
+      title: 'Corte do Bolo & Liberação da Mesa de Doces',
+      category: 'Recepção & Tradições',
+      categoryLabel: 'Recepção & Tradições',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Mesa de doces ou corte de bolo não informados pelo cliente.',
+      recommendation: 'Caso haja mesa de doces e bolo cenográfico/de corte, sugerimos agendar o brinde e fotos do casal com os doces logo após a entrada na festa, liberando o consumo aos convidados após o serviço principal.',
+      clientMention: 'Momento de bolo/doces não informado pelo cliente',
+      suggestion: 'Agendar fotos e brinde com o bolo antes de liberar o consumo geral.',
+      impact: 'Garante fotos da mesa intacta com iluminação perfeita.',
+    });
+  }
+
+  if (!serviceStatus.dj && !serviceStatus.musicos) {
+    cerimonialSuggestions.push({
+      id: 'sug-danca',
+      title: 'Primeira Dança dos Noivos & Abertura da Pista',
+      category: 'Recepção & Tradições',
+      categoryLabel: 'Recepção & Tradições',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Abertura oficial de pista ou primeira dança não informadas pelo cliente.',
+      recommendation: 'Caso os noivos desejem dançar uma música especial, o cerimonial pode coordenar a transição da música ambiente para a dança dos noivos com convite para os padrinhos se juntarem na pista.',
+      clientMention: 'Momento de dança/pista não informado pelo cliente',
+      suggestion: 'Coordenar primeira dança como gatilho de abertura de pista.',
+      impact: 'Transição energética que atrai os convidados naturalmente para a celebração festiva.',
+    });
+  }
+
+  if (!hasInformedBuque) {
+    cerimonialSuggestions.push({
+      id: 'sug-buque',
+      title: 'Momento da Jogada do Buquê da Noiva',
+      category: 'Recepção & Tradições',
+      categoryLabel: 'Recepção & Tradições',
+      statusLabel: 'SUGESTÃO DO CERIMONIAL IA',
+      description: 'Jogada do buquê da noiva não informada no briefing.',
+      recommendation: 'Caso a noiva queira realizar a tradição do buquê, sugerimos encaixar por volta da 3ª ou 4ª hora de recepção, quando a pista já estiver movimentada e os convidados descontraídos.',
+      clientMention: 'Jogada de buquê não informada pelo cliente',
+      suggestion: 'Programar jogada do buquê durante o ápice da pista de dança.',
+      impact: 'Momento lúdico e clássico de interação e registro fotográfico descontraído.',
+    });
+  }
 
   // Contingency Plan - NO MEDICATIONS, FLORALS, TREATMENTS OR SUBSTANCES!
   // No presumption of generator or uncontracted services
@@ -1159,6 +1465,7 @@ export function generateWeddingPlan(data: WeddingFormData): GeneratedPlan {
     vendors: vendorsList,
     whatsappMessages,
     ceremonyScript,
+    cerimonialSuggestions,
     contingencyPlan,
     dayDChecklist,
     postEventChecklist,
@@ -1240,20 +1547,35 @@ ${item.description}
   });
 
   text += `------------------------------------------------------
-4. ROTEIRO BÁSICO DA CERIMÔNIA
+4. ROTEIRO DA CERIMÔNIA (ITENS CONFIRMADOS)
 ------------------------------------------------------
 `;
 
   plan.ceremonyScript.forEach((step) => {
     text += `${step.order}. ${step.title}
-Participantes: ${step.participants} [${step.participantsSource === 'CLIENT_DATA' ? 'DADO INFORMADO PELO CLIENTE' : 'SUGESTÃO DO CERIMONIAL IA'}]
+Participantes: ${step.participants} [${step.participantsSource === 'CLIENT_DATA' ? 'DADO INFORMADO PELO CLIENTE' : 'NÃO INFORMADO'}]
 Detalhes: ${step.details}
 ${step.tip ? `Dica do Cerimonial: ${step.tip}` : ''}
 \n`;
   });
 
+  if (plan.cerimonialSuggestions.length > 0) {
+    text += `------------------------------------------------------
+5. SUGESTÕES DO CERIMONIAL IA (ITENS NÃO INFORMADOS)
+------------------------------------------------------
+`;
+    plan.cerimonialSuggestions.forEach((sug) => {
+      text += `* [${(sug.categoryLabel || sug.category).toUpperCase()}] ${sug.title}
+Status: [${sug.statusLabel}]
+Situação no Briefing: ${sug.clientMention || sug.description}
+Sugestão: ${sug.suggestion || sug.recommendation}
+Impacto Operacional: ${sug.impact || 'Alinhamento preventivo'}
+\n`;
+    });
+  }
+
   text += `------------------------------------------------------
-5. FORNECEDORES & RESPONSABILIDADES
+6. FORNECEDORES & RESPONSABILIDADES
 ------------------------------------------------------
 `;
 

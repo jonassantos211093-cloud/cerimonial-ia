@@ -14,13 +14,15 @@ export const CeremonyScriptSection: React.FC<CeremonyScriptSectionProps> = ({ st
           Roteiro Básico da Cerimônia
         </h2>
         <p className="text-xs sm:text-sm text-stone-500">
-          Ordem solene do cortejo de entrada, ritos, votos, bênção das alianças e cortejo de saída. Sugestões de fluxo estrutural com distinção de dados informados.
+          Ordem solene confirmada para a celebração. Participantes não informados pelo cliente são exibidos estritamente como &ldquo;Participantes: Não informado&rdquo;, sem presunção de mãe, pai, padrinhos, pajens ou acompanhantes.
         </p>
       </div>
 
       <div className="space-y-4">
         {steps.map((step) => {
           const isClientData = step.participantsSource === 'CLIENT_DATA';
+          const isNotInformed = step.participantsSource === 'NOT_INFORMED' || step.participants === 'Não informado';
+
           return (
             <div
               key={step.order}
@@ -36,11 +38,15 @@ export const CeremonyScriptSection: React.FC<CeremonyScriptSectionProps> = ({ st
                   <h3 className="text-base sm:text-lg font-bold text-stone-900">
                     {step.title}
                   </h3>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {isClientData ? (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 flex items-center gap-1">
                         <Check className="w-2.5 h-2.5" />
                         Dado do Cliente
+                      </span>
+                    ) : isNotInformed ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                        Não informado pelo cliente
                       </span>
                     ) : (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-stone-100 text-stone-600 border border-stone-200 flex items-center gap-1">
@@ -48,8 +54,18 @@ export const CeremonyScriptSection: React.FC<CeremonyScriptSectionProps> = ({ st
                         Sugestão Padrão IA
                       </span>
                     )}
-                    <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-stone-100 text-stone-700">
-                      {step.participants}
+                    <span
+                      className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${
+                        isNotInformed
+                          ? 'bg-amber-50/80 text-amber-900 border-amber-200'
+                          : isClientData
+                          ? 'bg-blue-50 text-blue-800 border-blue-200'
+                          : 'bg-stone-100 text-stone-700 border-stone-200'
+                      }`}
+                    >
+                      {step.participants.startsWith('Participantes:')
+                        ? step.participants
+                        : `Participantes: ${step.participants}`}
                     </span>
                   </div>
                 </div>
